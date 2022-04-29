@@ -1,0 +1,61 @@
+parameters:
+  # Pipeline-related parameters
+  serviceConnection: '$(serviceConnection)'
+  poolName: '$(poolName)'
+  vmImage: '$(vmImage)'
+  defaultJobTimeoutInMinutes: 120
+  checkoutRepositories: ''
+  # Logic-related parameters
+  moduleName: '$(moduleName)'
+  modulePath: '$(modulePath)'
+  modulesPath: '$(modulesPath)'
+  parametersPath: '$(parametersPath)'
+  deploymentBlocks: 
+  parametersRepository: '$(Build.Repository.Name)'
+  location: '$(location)'
+  resourceGroupName: '$(resourceGroupName)'
+  subscriptionId: '$(subscriptionId)'
+
+jobs:
+- job: 'validate_and_test'
+  displayName: Run module tests
+  timeoutInMinutes: ${{ parameters.defaultJobTimeoutInMinutes }}
+  pool:
+    ${{ if ne(parameters.vmImage, '') }}:
+      vmImage: ${{ parameters.vmImage }}
+    ${{ if ne(parameters.poolName, '') }}:
+      name: ${{ parameters.poolName }}
+  steps:
+  - task: AzureResourceManagerTemplateDeployment@3
+    displayName: Validate Template
+    inputs:
+      deploymentScope: 'Resource Group'
+      azureResourceManagerConnection: '${{ parameters.serviceConnection }}'
+      subscriptionId: '${{ parameters.subscriptionId }}'
+      action: 'Create Or Update Resource Group'
+      resourceGroupName: '$(Build.Repository.ID)-$(Build.BuildId)'
+      location: '${{ parameters.location }}'
+      templateLocation: 'Linked artifact'
+      csmFile: '${{ parameters.modulePath }}/deploy.json'
+      csmParametersFile: '${{ parameters.parametersPath }}/deploy.parameters.json'
+      deploymentMode: 'Validation'
+  - task: PowerShell@2
+    displayName: Install Az Module
+    inputs:
+      targetType: 'inline'
+      script: 'Install-Module Az.Resources -RequiredVersion 1.12.1-preview -AllowPrerelease -Force -Scope CurrentUser'
+  - task: AzurePowerShell@5
+    displayName: Show Deployed Resources
+    inputs:
+      azureSubscription: '${{ parameters.serviceConnection }}'
+      ScriptType: 'InlineScript'
+      Inline: |
+        $Parameters = @{
+          ResourcegroupName     = "$(Build.Repository.ID)-$(Build.BuildId)"
+          Templatefile          = "${{ parameters.modulePath }}\deploy.json"
+          TemplateParameterfile = "${{ parameters.parametersPath }}\deploy.parameters.json"
+          Mode                  = 'Incremental'
+         }
+        $Result = Get-AzResourceGroupDeploymentWhatIfResult @Parameters
+        $Result
+      azurePowerShellVersion: 'LatestVersion'

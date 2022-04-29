@@ -1,0 +1,41 @@
+parameters:
+  # Pipeline-related parameters
+  serviceConnection: '$(serviceConnection)'
+  poolName: '$(poolName)'
+  vmImage: '$(vmImage)'
+  defaultJobTimeoutInMinutes: 120
+  checkoutRepositories: ''
+  # Logic-related parameters
+  moduleName: '$(moduleName)'
+  modulePath: '$(modulePath)'
+  modulesPath: '$(modulesPath)'
+  parametersPath: '$(parametersPath)'
+  deploymentBlocks: 
+  parametersRepository: '$(Build.Repository.Name)'
+  location: '$(location)'
+  resourceGroupName: '$(resourceGroupName)'
+  subscriptionId: '$(subscriptionId)'
+
+jobs:
+- job: 'deploy'
+  displayName: Run module tests
+  timeoutInMinutes: ${{ parameters.defaultJobTimeoutInMinutes }}
+  pool:
+    ${{ if ne(parameters.vmImage, '') }}:
+      vmImage: ${{ parameters.vmImage }}
+    ${{ if ne(parameters.poolName, '') }}:
+      name: ${{ parameters.poolName }}
+  steps:
+  - task: AzureResourceManagerTemplateDeployment@3
+    displayName: Deploy ARM Template
+    inputs:
+      deploymentScope: 'Resource Group'
+      azureResourceManagerConnection: '${{ parameters.serviceConnection }}'
+      subscriptionId: '${{ parameters.subscriptionId }}'
+      action: 'Create Or Update Resource Group'
+      resourceGroupName: '$(Build.Repository.ID)-$(Build.BuildId)'
+      location: '${{ parameters.location }}'
+      templateLocation: 'Linked artifact'
+      csmFile: '${{ parameters.modulePath }}/deploy.json'
+      csmParametersFile: '${{ parameters.parametersPath }}/deploy.parameters.json'
+      deploymentMode: 'Incremental'

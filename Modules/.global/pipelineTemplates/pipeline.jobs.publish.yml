@@ -1,0 +1,41 @@
+parameters:
+  # Pipeline-related parameters
+  serviceConnection: '$(serviceConnection)'
+  poolName: '$(poolName)'
+  vmImage: '$(vmImage)'
+  defaultJobTimeoutInMinutes: 120
+  checkoutRepositories: ''
+  # Logic-related parameters
+  moduleName: '$(moduleName)'
+  modulePath: '$(modulePath)'
+  modulesPath: '$(modulesPath)'
+  parametersPath: '$(parametersPath)'
+  deploymentBlocks: 
+  parametersRepository: '$(Build.Repository.Name)'
+  location: '$(location)'
+  resourceGroupName: '$(resourceGroupName)'
+  subscriptionId: '$(subscriptionId)'
+
+jobs:
+- job: 'publish'
+  displayName: Run module tests
+  timeoutInMinutes: ${{ parameters.defaultJobTimeoutInMinutes }}
+  pool:
+    ${{ if ne(parameters.vmImage, '') }}:
+      vmImage: ${{ parameters.vmImage }}
+    ${{ if ne(parameters.poolName, '') }}:
+      name: ${{ parameters.poolName }}
+  steps:
+  - task: CopyFiles@2
+          displayName: Sync Files
+          inputs:
+            SourceFolder: '$(Build.SourcesDirectory)'
+            Contents: |
+              **\${{ parameters.modulePath }}\**\?(*.json)
+            TargetFolder: '$(Build.ArtifactStagingDirectory)'
+        - task: PublishBuildArtifacts@1
+          displayName: Publish Artifacts
+          inputs:
+            PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+            ArtifactName: '${{ parameters.moduleName }}'
+            publishLocation: 'Container'

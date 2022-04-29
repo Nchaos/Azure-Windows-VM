@@ -1,0 +1,33 @@
+variables:
+
+######################################
+# Agent settings
+######################################
+
+  vmImage: 'windows-latest'          # Use this for Microsoft-hosted agents
+  poolName: ''   # Use this for self-hosted agents
+  serviceConnection: ''
+  subscriptionId: ''
+
+######################################
+# Source
+######################################
+
+  modulesRepository: Azure-Windows-VM # The repository hosting the deployment code (i.e. 'Components'). MUST be provided as a variable with every pipeline
+  modulesPath: Modules
+  modulePath: $(modulesPath)/$(moduleName) # only use in module pielines
+  parametersPath: $(modulePath)/parameters # only use in module pielines
+
+######################################
+# Validation deployment settings
+######################################
+
+  location: 'US Gov Texas'
+  resourceGroupName: 'validation-rg' # validation-resourcegroup-name
+  dependencyResourceGroupName: 'dependencies-rg'
+
+######################################
+# General removal settings
+######################################
+
+  maximumRemovalRetries: 3 # Maximum number of retries to remove a resources in one pipeline run

@@ -1,0 +1,157 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "environment": {
+            "type": "string",
+            "allowedvalues": [
+                "dev",
+                "qa",
+                "prod"
+            ],
+            "metadata": {
+                "description": "The Name of the Environment."
+            },
+            "defaultvalue": "dev"
+        },
+        "location": {
+            "type": "string",
+            "allowedValues": [
+                "usgovtexas",
+                "usgovvirgina"
+            ],
+            "metadata": {
+                "description": "The location of the vms"
+            }
+        },
+        "vmcount": {
+            "type": "int",
+            "metadata": {
+                "description": "The number of vms to create."
+            },
+            "defaultvalue": 1,
+            "maxvalue": 9,
+            "minvalue": 1
+        },
+        "adminUserName": {
+            "type": "string",
+            "metadata": {
+                "description": "The admin username for the VM(s)."
+            },
+            "defaultValue": "adminuser"
+        },
+        "adminPassword": {
+            "type": "string",
+            "metadata": {
+                "description": "The Password for the Admin account."
+            },
+            "defaultValue": "password"
+        },
+        "vnetName": {
+            "type": "string",
+            "metadata": {
+                "description": "The resource name of the virtual network."
+            }
+        },
+        "subnetName": {
+            "type": "string",
+            "metadata": {
+                "description": "The resource name of the subnet."
+            }
+        },
+        "tags": {
+            "type": "object",
+            "metadata": {
+                "description": "Tags for the resources."
+            },
+            "defaultValue": {
+                "Project": "DCIT"
+            }
+        },
+        "vnetRGName": {
+            "type": "string",
+            "metadata": {
+                "description": "The resource group name of the virtual network."
+            }
+        }
+    },
+    "functions": [],
+    "variables": {
+        "location_short": "[if(equals(parameters('location'),'usgovtexas'),'usgt','usgv')]",
+        "vmname": "[concat('vm-',variables('location_short'),'-', parameters('environment'))]",
+        "adminPassword": "[if(equals(parameters('adminPassword'),'password'), '$up3r$tr0ngP@ss' ,parameters('adminPassword'))]",
+        "nicname": "[concat('nic-',variables('location_short'),'-', parameters('environment'))]",
+        "subnetID": "[resourceId(parameters('vnetRGName'),'Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]"
+    },
+    "resources": [
+        {
+            "name": "[concat(variables('nicname'),'-', copyIndex(101))]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2019-11-01",
+            "location": "[parameters('location')]",
+            "tags": "[parameters('tags')]",
+            "copy": {
+                "name": "niccopy",
+                "count": "[parameters('vmcount')]"
+            },
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipConfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[variables('subnetID')]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[concat(variables('vmname'),'-', copyIndex(101))]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "location": "[parameters('location')]",
+            "tags": "[parameters('tags')]",
+            "copy": {
+                "name": "vmcopy",
+                "count": "[parameters('vmcount')]"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('nicname'),'-', copyIndex(101)))]"
+            ],
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_A2_v2"
+                },
+                "osProfile": {
+                    "computerName": "[concat(variables('vmname'),'-', copyIndex(101))]",
+                    "adminUsername": "[parameters('adminUserName')]",
+                    "adminPassword": "[variables('adminPassword')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "MicrosoftWindowsServer",
+                        "offer": "WindowsServer",
+                        "sku": "2012-R2-Datacenter",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "[concat('OSDisk', copyIndex(101))]",
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', concat(variables('nicname'),'-', copyIndex(101)))]"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "outputs": {}
+}
